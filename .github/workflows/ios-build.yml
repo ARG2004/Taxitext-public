@@ -3,6 +3,9 @@ name: Build iOS IPA
 on:
   workflow_dispatch:
 
+env:
+  RCT_NEW_ARCH_ENABLED: "0"
+
 jobs:
   build:
     runs-on: macos-latest
