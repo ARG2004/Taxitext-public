@@ -315,7 +315,6 @@ export default function DriverHomeScreen({ navigation }: any) {
           domStorageEnabled={true}
           originWhitelist={['*']}
           mixedContentMode="always"
-          androidHardwareAccelerationDisabled={true}
           onLoadEnd={() => {
             if (driverLocation) {
               sendToMap({ type: 'center', lat: driverLocation.lat, lng: driverLocation.lng });

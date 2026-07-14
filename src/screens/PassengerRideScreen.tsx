@@ -29,6 +29,7 @@ import {
 import { startRide, cancelRide } from '../services/rideService';
 import { fetchDrivingRoute } from '../utils/ors';
 import type { Ride, RideStatus } from '../types/rideTypes';
+import { shownNotifications } from './PassengerHomeScreen';
 
 const YELLOW = '#F5C200';
 const DARK = '#1A1A2E';
@@ -164,50 +165,51 @@ export default function PassengerRideScreen({ route, navigation }: any) {
     webviewRef.current?.injectJavaScript(js);
   }, []);
 
-  // Observer to notify passenger of status changes in real-time
-  const prevEstadoRef = useRef<string | null>(null);
-
+  // Observer to notify passenger of status changes in real-time, sharing registry with home screen
   useEffect(() => {
     if (!ride) return;
 
-    const prevEstado = prevEstadoRef.current;
     const currentEstado = ride.estado;
+    const key = `${ride.id}_${currentEstado}`;
 
-    if (prevEstado !== null && prevEstado !== currentEstado) {
-      if (currentEstado === 'aceptado') {
-        Alert.alert(
-          '¡Conductor en Camino! 🚕',
-          `El conductor ${ride.conductorNombre || 'de TaxiTex'} ha aceptado tu viaje.\n` +
-          `Unidad: ${ride.conductorUnidad || 'N/A'} • Placas: ${ride.conductorPlaca || 'N/A'}`
-        );
-      } else if (currentEstado === 'llegado') {
-        Alert.alert(
-          '¡Tu Taxi ha Llegado! 📍',
-          `${ride.conductorNombre || 'El conductor'} te está esperando en el punto de encuentro.`
-        );
-      } else if (currentEstado === 'en_curso') {
-        Alert.alert(
-          'Viaje Iniciado 🚀',
-          `Te diriges hacia: ${ride.destino.label}`
-        );
-      } else if (currentEstado === 'completado') {
-        Alert.alert(
-          '¡Hemos Llegado! 🎉',
-          `El viaje ha finalizado con éxito.\n` +
-          `Costo final: $${ride.precioFinal || '0'} MXN.`
-        );
-      } else if (currentEstado === 'cancelado') {
-        Alert.alert(
-          'Viaje Cancelado ❌',
-          ride.canceladoPor === 'driver'
-            ? 'El conductor ha cancelado el viaje.'
-            : 'Has cancelado el viaje.'
-        );
+    if (!shownNotifications.has(key)) {
+      shownNotifications.add(key);
+
+      if (currentEstado !== 'buscando') {
+        if (currentEstado === 'aceptado') {
+          Alert.alert(
+            '¡Conductor en Camino! 🚕',
+            `El conductor ${ride.conductorNombre || 'de TaxiTex'} ha aceptado tu viaje.\n` +
+            `Unidad: ${ride.conductorUnidad || 'N/A'} • Placas: ${ride.conductorPlaca || 'N/A'}`
+          );
+        } else if (currentEstado === 'llegado') {
+          Alert.alert(
+            '¡Tu Taxi ha Llegado! 📍',
+            `${ride.conductorNombre || 'El conductor'} te está esperando en el punto de encuentro.`
+          );
+        } else if (currentEstado === 'en_curso') {
+          Alert.alert(
+            'Viaje Iniciado 🚀',
+            `Te diriges hacia: ${ride.destino.label}`
+          );
+        } else if (currentEstado === 'completado') {
+          Alert.alert(
+            '¡Hemos Llegado! 🎉',
+            `El viaje ha finalizado con éxito.\n` +
+            `Costo final: $${ride.precioFinal || '0'} MXN.`
+          );
+        } else if (currentEstado === 'cancelado') {
+          Alert.alert(
+            'Viaje Cancelado ❌',
+            ride.canceladoPor === 'driver'
+              ? 'El conductor ha cancelado el viaje.'
+              : 'Has cancelado el viaje.'
+          );
+        }
       }
     }
-
-    prevEstadoRef.current = currentEstado;
   }, [
+    ride?.id,
     ride?.estado,
     ride?.conductorNombre,
     ride?.conductorUnidad,
@@ -610,7 +612,6 @@ export default function PassengerRideScreen({ route, navigation }: any) {
           domStorageEnabled
           originWhitelist={['*']}
           mixedContentMode="always"
-          androidHardwareAccelerationDisabled={true}
           onLoadEnd={handleWebViewLoad}
         />
 

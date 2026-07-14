@@ -13,7 +13,6 @@ import {
   Dimensions,
   TextInput,
   FlatList,
-  ScrollView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import auth from '@react-native-firebase/auth';
@@ -75,7 +74,6 @@ const MAP_HTML = `
       background: rgb(43,125,180); border: 2px solid white;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       display:flex; align-items:center; justify-content:center;
-      transition: transform 0.4s ease-out;
     }
     .passenger-marker {
       width:24px; height:24px; border-radius:50%;
@@ -87,84 +85,6 @@ const MAP_HTML = `
       0% { box-shadow: 0 0 0 0 rgba(245,194,0,0.7); }
       70% { box-shadow: 0 0 0 15px rgba(245,194,0,0); }
       100% { box-shadow: 0 0 0 0 rgba(245,194,0,0); }
-    }
-    
-    /* Radar Effect for Pending Requests */
-    .pending-pulse-marker {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #F9A825;
-      border: 2.5px solid white;
-      box-shadow: 0 0 12px rgba(249,168,37,0.7);
-      position: relative;
-    }
-    .pending-pulse-marker::after {
-      content: '';
-      position: absolute;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 2px solid #F9A825;
-      opacity: 0;
-      top: -16px;
-      left: -16px;
-      animation: radar-sweep 2s infinite linear;
-    }
-    @keyframes radar-sweep {
-      0% { transform: scale(0.3); opacity: 0.8; }
-      100% { transform: scale(1.6); opacity: 0; }
-    }
-
-    /* Premium Leaflet Popup Customization */
-    .leaflet-popup-content-wrapper {
-      background: #1A1A2E !important;
-      color: #fff !important;
-      border-radius: 12px !important;
-      padding: 6px !important;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3) !important;
-    }
-    .leaflet-popup-tip {
-      background: #1A1A2E !important;
-    }
-    .popup-title {
-      font-weight: 800;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #FFCA28;
-    }
-    .popup-desc {
-      font-size: 11px;
-      color: #E8ECF0;
-      margin-bottom: 10px;
-      line-height: 1.3;
-    }
-    .popup-buttons {
-      display: flex;
-      gap: 6px;
-    }
-    .popup-btn {
-      flex: 1;
-      padding: 6px 8px;
-      border-radius: 6px;
-      border: none;
-      font-size: 10px;
-      font-weight: 800;
-      cursor: pointer;
-      text-align: center;
-      transition: opacity 0.2s;
-    }
-    .popup-btn:active {
-      opacity: 0.8;
-    }
-    .popup-btn-primary {
-      background: #039BE5;
-      color: #fff;
-    }
-    .popup-btn-secondary {
-      background: #5A6272;
-      color: #fff;
     }
     .leaflet-container { background: rgb(245,245,245) !important; }
   </style>
@@ -182,13 +102,11 @@ const MAP_HTML = `
     '<circle cx="17" cy="17" r="7" fill="' + color + '"/></svg>'; };
   var pickupIcon = L.divIcon({ className:'', html:pinSvg('rgb(43,125,180)'), iconSize:[30,40], iconAnchor:[15,40] });
   var destIcon = L.divIcon({ className:'', html:pinSvg('rgb(245,194,0)'), iconSize:[30,40], iconAnchor:[15,40] });
-  var pendingIcon = L.divIcon({ className:'', html:'<div class="pending-pulse-marker"></div>', iconSize:[24,24], iconAnchor:[12,12] });
 
   var driverMarker = null;
   var pickupMarker = null;
   var destMarker = null;
   var routeLayer = null;
-  var pendingMarkers = {};
 
   window.handleMapAction = function(data) {
     if (data.type === 'center') {
@@ -207,9 +125,9 @@ const MAP_HTML = `
       destMarker = L.marker([data.lat, data.lng], {icon:destIcon}).addTo(map);
     } else if (data.type === 'route') {
       if (routeLayer) map.removeLayer(routeLayer);
-      var coords = data.coords.map(function(c){ return [c[1],c[0]]; });
-      routeLayer = L.polyline(coords, { color: data.color || 'rgb(43,125,180)', weight:6, opacity:0.9, lineCap:'round' }).addTo(map);
-      map.fitBounds(routeLayer.getBounds(), { padding:[50,50], animate: true });
+        var coords = data.coords.map(function(c){ return [c[1],c[0]]; });
+        routeLayer = L.polyline(coords, { color: data.color || 'rgb(43,125,180)', weight:6, opacity:0.9, lineCap:'round' }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding:[50,50], animate: true });
     } else if (data.type === 'clear') {
       if (routeLayer) { map.removeLayer(routeLayer); routeLayer=null; }
       if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker=null; }
@@ -220,32 +138,6 @@ const MAP_HTML = `
       if (pickupMarker) bounds.push(pickupMarker.getLatLng());
       if (destMarker) bounds.push(destMarker.getLatLng());
       if (bounds.length >= 2) map.fitBounds(bounds, { padding:[50,50], animate: true });
-    } else if (data.type === 'pendingRides') {
-      // Clear old pending
-      for (var id in pendingMarkers) {
-        map.removeLayer(pendingMarkers[id]);
-      }
-      pendingMarkers = {};
-
-      // Draw new pending
-      data.rides.forEach(function(ride) {
-        var m = L.marker([ride.origen.lat, ride.origen.lng], {icon:pendingIcon}).addTo(map);
-        
-        var popupHtml = '<div class="popup-title">' + ride.pasajeroNombre + '</div>' +
-          '<div class="popup-desc"><b>Destino:</b> ' + ride.destino.label + '</div>' +
-          '<div class="popup-buttons">' +
-          '<button class="popup-btn popup-btn-secondary" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\'selectRide\',rideId:\'' + ride.id + '\'}))">Ver Ruta</button>' +
-          '<button class="popup-btn popup-btn-primary" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\'acceptRide\',rideId:\'' + ride.id + '\'}))">Aceptar</button>' +
-          '</div>';
-        
-        m.bindPopup(popupHtml, { minWidth: 160 });
-        pendingMarkers[ride.id] = m;
-      });
-    } else if (data.type === 'clearPending') {
-      for (var id in pendingMarkers) {
-        map.removeLayer(pendingMarkers[id]);
-      }
-      pendingMarkers = {};
     }
   };
 
@@ -276,13 +168,6 @@ export default function DriverMapScreen({ navigation }: any) {
   const [busy, setBusy] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
 
-  const sendToMap = useCallback((data: object) => {
-    const js = `document.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(
-      JSON.stringify(data),
-    )}}));true;`;
-    webviewRef.current?.injectJavaScript(js);
-  }, []);
-
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -298,6 +183,13 @@ export default function DriverMapScreen({ navigation }: any) {
       console.log('Error parsing WebView message:', e);
     }
   };
+
+  const sendToMap = useCallback((data: object) => {
+    const js = `document.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(
+      JSON.stringify(data),
+    )}}));true;`;
+    webviewRef.current?.injectJavaScript(js);
+  }, []);
 
   // 1. Escuchar solicitudes pendientes (estado == 'buscando')
   useEffect(() => {
@@ -333,41 +225,6 @@ export default function DriverMapScreen({ navigation }: any) {
     return unsub;
   }, [uid]);
 
-  // Observer to notify driver if active ride is cancelled by passenger
-  const prevActiveRideIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (activeRide) {
-      prevActiveRideIdRef.current = activeRide.id;
-    } else {
-      const prevId = prevActiveRideIdRef.current;
-      if (prevId) {
-        firestore()
-          .collection('solicitudes')
-          .doc(prevId)
-          .get()
-          .then((doc) => {
-            if (doc.exists() && doc.data()?.estado === 'cancelado' && doc.data()?.canceladoPor === 'passenger') {
-              Alert.alert('Viaje Cancelado ❌', 'El pasajero ha cancelado este viaje.');
-              // Reset driver status to available since they have permissions to update their own document
-              if (uid) {
-                firestore()
-                  .collection('conductores')
-                  .doc(uid)
-                  .update({
-                    status: 'available',
-                    updatedAt: firestore.FieldValue.serverTimestamp(),
-                  })
-                  .catch(() => {});
-              }
-            }
-          })
-          .catch(() => {});
-        prevActiveRideIdRef.current = null;
-      }
-    }
-  }, [activeRide?.id, uid]);
-
   // 3. Monitorear ubicación del conductor y actualizar Firestore
   useEffect(() => {
     let watchId: number | null = null;
@@ -378,10 +235,8 @@ export default function DriverMapScreen({ navigation }: any) {
           const initialPos = await getCurrentPosition();
           setDriverLocation(initialPos);
           setLoadingLocation(false);
-          if (isMapReady) {
-            sendToMap({ type: 'driverLocation', lat: initialPos.lat, lng: initialPos.lng });
-            sendToMap({ type: 'center', lat: initialPos.lat, lng: initialPos.lng });
-          }
+          sendToMap({ type: 'driverLocation', lat: initialPos.lat, lng: initialPos.lng });
+          sendToMap({ type: 'center', lat: initialPos.lat, lng: initialPos.lng });
         } catch (e) {
           console.log('Error al obtener ubicación inicial:', e);
           setLoadingLocation(false);
@@ -390,9 +245,7 @@ export default function DriverMapScreen({ navigation }: any) {
         // Seguir posición
         watchId = watchPosition((loc) => {
           setDriverLocation(loc);
-          if (isMapReady) {
-            sendToMap({ type: 'driverLocation', lat: loc.lat, lng: loc.lng });
-          }
+          sendToMap({ type: 'driverLocation', lat: loc.lat, lng: loc.lng });
 
           // Actualizar conductores/uid en Firestore
           if (uid) {
@@ -400,7 +253,7 @@ export default function DriverMapScreen({ navigation }: any) {
               lat: loc.lat,
               lng: loc.lng,
               updatedAt: firestore.FieldValue.serverTimestamp(),
-            }).catch(() => {});
+            }).catch(() => { });
           }
 
           // Si hay viaje activo, actualizar conductorUbicacion en la solicitud
@@ -418,32 +271,12 @@ export default function DriverMapScreen({ navigation }: any) {
         clearWatch(watchId);
       }
     };
-  }, [uid, activeRide?.id, isMapReady]);
-
-  // 3.5. Enviar solicitudes pendientes al mapa si no hay viaje activo
-  useEffect(() => {
-    if (!isMapReady || activeRide) {
-      if (isMapReady && activeRide) {
-        sendToMap({ type: 'clearPending' });
-      }
-      return;
-    }
-
-    sendToMap({
-      type: 'pendingRides',
-      rides: pendingRides.map((r) => ({
-        id: r.id,
-        pasajeroNombre: r.pasajeroNombre,
-        origen: r.origen,
-        destino: r.destino,
-      })),
-    });
-  }, [isMapReady, pendingRides, activeRide, sendToMap]);
+  }, [uid, activeRide?.id]);
 
   // 4. Calcular y trazar ruta del viaje activo
   useEffect(() => {
-    if (!isMapReady || !activeRide || !driverLocation) {
-      if (isMapReady && !activeRide) {
+    if (!activeRide || !driverLocation) {
+      if (!activeRide) {
         sendToMap({ type: 'clear' });
       }
       return;
@@ -472,7 +305,7 @@ export default function DriverMapScreen({ navigation }: any) {
       }
 
       const result = await fetchDrivingRoute(from, to);
-      if (result && isMapReady) {
+      if (result) {
         sendToMap({
           type: 'route',
           coords: result.coords,
@@ -489,15 +322,15 @@ export default function DriverMapScreen({ navigation }: any) {
     };
 
     calcRoute();
-  }, [isMapReady, activeRide?.id, activeRide?.estado, driverLocation?.lat, driverLocation?.lng]);
+  }, [activeRide?.id, activeRide?.estado, driverLocation?.lat, driverLocation?.lng]);
 
   // 5. Mostrar preview de una solicitud seleccionada
   useEffect(() => {
-    if (!isMapReady || activeRide || !selectedPreviewRide) return;
+    if (activeRide || !selectedPreviewRide) return;
 
     const calcPreview = async () => {
       const result = await fetchDrivingRoute(selectedPreviewRide.origen, selectedPreviewRide.destino);
-      if (result && isMapReady) {
+      if (result) {
         sendToMap({
           type: 'route',
           coords: result.coords,
@@ -509,7 +342,7 @@ export default function DriverMapScreen({ navigation }: any) {
     };
 
     calcPreview();
-  }, [isMapReady, selectedPreviewRide?.id, activeRide]);
+  }, [selectedPreviewRide?.id, activeRide]);
 
   // Acciones
   const handleAccept = async (rideId: string) => {
@@ -618,7 +451,7 @@ export default function DriverMapScreen({ navigation }: any) {
 
     let statusText = '';
     let statusBg = C.azulTalavera;
-    let buttonAction: () => void = () => {};
+    let buttonAction: () => void = () => { };
     let buttonLabel = '';
 
     if (activeRide.estado === 'aceptado') {
@@ -651,84 +484,79 @@ export default function DriverMapScreen({ navigation }: any) {
         </View>
 
         {/* Detalles del viaje */}
-        {/* Detalles del viaje scrollable en pantallas pequeñas */}
-        <View style={{ flex: 1, maxHeight: height * 0.28 }}>
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-            <View style={styles.activeBody}>
-              <View style={styles.activeUserRow}>
-                <View style={styles.avatarCircle}>
-                  <User size={20} color={C.azulTalavera} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.passengerName}>{activeRide.pasajeroNombre}</Text>
-                  <Text style={styles.passengerLabel}>Pasajero de TaxiTex</Text>
-                </View>
-                <TouchableOpacity style={styles.activeChatBtn} onPress={openChat}>
-                  <MessageCircle size={22} color={C.azulTalavera} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Ubicaciones */}
-              <View style={styles.addressList}>
-                <View style={styles.addressRow}>
-                  <View style={[styles.dot, { backgroundColor: C.azulTalavera }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.addressTitle}>Punto de origen</Text>
-                    <Text style={styles.addressText} numberOfLines={1}>
-                      {activeRide.origen.label}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.addressLine} />
-                <View style={styles.addressRow}>
-                  <View style={[styles.dot, { backgroundColor: C.amarillo }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.addressTitle}>Destino</Text>
-                    <Text style={styles.addressText} numberOfLines={1}>
-                      {activeRide.destino.label}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Entrada de costo final al estar en curso */}
-              {activeRide.estado === 'en_curso' && (
-                <View style={styles.priceInputContainer}>
-                  <Text style={styles.priceLabel}>Monto acordado (MXN):</Text>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.currencySign}>$</Text>
-                    <TextInput
-                      style={styles.priceInput}
-                      keyboardType="numeric"
-                      placeholder="0.00"
-                      placeholderTextColor={C.gris}
-                      value={priceInput}
-                      onChangeText={setPriceInput}
-                    />
-                  </View>
-                </View>
-              )}
+        <View style={styles.activeBody}>
+          <View style={styles.activeUserRow}>
+            <View style={styles.avatarCircle}>
+              <User size={20} color={C.azulTalavera} />
             </View>
-          </ScrollView>
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.passengerName}>{activeRide.pasajeroNombre}</Text>
+              <Text style={styles.passengerLabel}>Pasajero de TaxiTex</Text>
+            </View>
+            <TouchableOpacity style={styles.activeChatBtn} onPress={openChat}>
+              <MessageCircle size={22} color={C.azulTalavera} />
+            </TouchableOpacity>
+          </View>
 
-        {/* Botones de acción siempre visibles */}
-        <View style={styles.activeActions}>
-          <TouchableOpacity
-            style={styles.actionMainBtn}
-            onPress={buttonAction}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color={C.blanco} />
-            ) : (
-              <Text style={styles.actionMainBtnText}>{buttonLabel}</Text>
-            )}
-          </TouchableOpacity>
+          {/* Ubicaciones */}
+          <View style={styles.addressList}>
+            <View style={styles.addressRow}>
+              <View style={[styles.dot, { backgroundColor: C.azulTalavera }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addressTitle}>Punto de origen</Text>
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeRide.origen.label}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.addressLine} />
+            <View style={styles.addressRow}>
+              <View style={[styles.dot, { backgroundColor: C.amarillo }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addressTitle}>Destino</Text>
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {activeRide.destino.label}
+                </Text>
+              </View>
+            </View>
+          </View>
 
-          <TouchableOpacity style={styles.actionCancelBtn} onPress={handleCancel} disabled={busy}>
-            <Trash2 size={20} color={C.rojo} />
-          </TouchableOpacity>
+          {/* Entrada de costo final al estar en curso */}
+          {activeRide.estado === 'en_curso' && (
+            <View style={styles.priceInputContainer}>
+              <Text style={styles.priceLabel}>Monto acordado (MXN):</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.currencySign}>$</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  keyboardType="numeric"
+                  placeholder="0.00"
+                  placeholderTextColor={C.gris}
+                  value={priceInput}
+                  onChangeText={setPriceInput}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Botones de acción */}
+          <View style={styles.activeActions}>
+            <TouchableOpacity
+              style={styles.actionMainBtn}
+              onPress={buttonAction}
+              disabled={busy}
+            >
+              {busy ? (
+                <ActivityIndicator color={C.blanco} />
+              ) : (
+                <Text style={styles.actionMainBtnText}>{buttonLabel}</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCancelBtn} onPress={handleCancel} disabled={busy}>
+              <Trash2 size={20} color={C.rojo} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -779,13 +607,13 @@ export default function DriverMapScreen({ navigation }: any) {
                     <View style={styles.rideAddressItem}>
                       <MapPin size={12} color={C.azulTalavera} />
                       <Text style={styles.rideAddressLabel} numberOfLines={1}>
-                        <Text style={{fontWeight: 'bold'}}>Origen:</Text> {item.origen.label}
+                        <Text style={{ fontWeight: 'bold' }}>Origen:</Text> {item.origen.label}
                       </Text>
                     </View>
                     <View style={styles.rideAddressItem}>
                       <MapPin size={12} color={C.amarillo} />
                       <Text style={styles.rideAddressLabel} numberOfLines={1}>
-                        <Text style={{fontWeight: 'bold'}}>Destino:</Text> {item.destino.label}
+                        <Text style={{ fontWeight: 'bold' }}>Destino:</Text> {item.destino.label}
                       </Text>
                     </View>
                   </View>
@@ -800,7 +628,7 @@ export default function DriverMapScreen({ navigation }: any) {
                     >
                       <Text style={styles.previewBtnText}>Ver mapa</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.acceptBtn}
                       onPress={() => handleAccept(item.id)}
@@ -840,13 +668,14 @@ export default function DriverMapScreen({ navigation }: any) {
       <View style={styles.mapWrapper}>
         <WebView
           ref={webviewRef}
-          source={{ html: MAP_HTML }}
-          style={styles.map}
+          source={{ html: MAP_HTML, baseUrl: 'https://localhost' }}
+          style={[styles.map, { width: '100%', height: '100%' }]}
           javaScriptEnabled={true}
           domStorageEnabled={true}
           originWhitelist={['*']}
           mixedContentMode="always"
-          androidHardwareAccelerationDisabled={true}
+          androidHardwareAccelerationDisabled={false}
+          onMessage={handleWebViewMessage}
           onLoadEnd={() => {
             setIsMapReady(true);
             if (driverLocation) {
@@ -854,7 +683,6 @@ export default function DriverMapScreen({ navigation }: any) {
               sendToMap({ type: 'center', lat: driverLocation.lat, lng: driverLocation.lng });
             }
           }}
-          onMessage={handleWebViewMessage}
         />
 
         {loadingLocation && (
@@ -915,9 +743,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     ...Shadows.lg,
-    maxHeight: height * 0.55,
+    maxHeight: height * 0.45,
   },
-  
+
   // Estilos Viaje Activo
   activeCard: { backgroundColor: C.blanco, borderRadius: Radius.lg, overflow: 'hidden' },
   activeHeader: {

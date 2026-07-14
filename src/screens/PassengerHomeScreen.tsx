@@ -125,6 +125,8 @@ const MAP_HTML = `
 </html>
 `;
 
+export const shownNotifications = new Set<string>();
+
 export default function PassengerHomeScreen({ navigation }: any) {
   const webviewRef = useRef<any>(null);
   const [searchText, setSearchText] = useState('');
@@ -221,6 +223,64 @@ export default function PassengerHomeScreen({ navigation }: any) {
           console.log('Error en solicitudes en tiempo real:', error);
         }
       );
+
+    return unsub;
+  }, []);
+
+  // Monitor latest ride status transitions to show alerts on Passenger Home
+  useEffect(() => {
+    const user = auth().currentUser;
+    if (!user) return;
+
+    const unsub = firestore()
+      .collection('solicitudes')
+      .where('pasajeroId', '==', user.uid)
+      .orderBy('creadoEn', 'desc')
+      .limit(1)
+      .onSnapshot((snap) => {
+        if (snap && !snap.empty) {
+          const doc = snap.docs[0];
+          const rideData = { id: doc.id, ...(doc.data() as any) } as Ride;
+          
+          const key = `${rideData.id}_${rideData.estado}`;
+          if (!shownNotifications.has(key)) {
+            shownNotifications.add(key);
+            
+            if (rideData.estado !== 'buscando') {
+              if (rideData.estado === 'aceptado') {
+                Alert.alert(
+                  '¡Conductor en Camino! 🚕',
+                  `El conductor ${rideData.conductorNombre || 'de TaxiTex'} ha aceptado tu viaje.\n` +
+                  `Unidad: ${rideData.conductorUnidad || 'N/A'} • Placas: ${rideData.conductorPlaca || 'N/A'}`
+                );
+              } else if (rideData.estado === 'llegado') {
+                Alert.alert(
+                  '¡Tu Taxi ha Llegado! 📍',
+                  `${rideData.conductorNombre || 'El conductor'} te está esperando en el punto de encuentro.`
+                );
+              } else if (rideData.estado === 'en_curso') {
+                Alert.alert(
+                  'Viaje Iniciado 🚀',
+                  `Te diriges hacia: ${rideData.destino.label}`
+                );
+              } else if (rideData.estado === 'completado') {
+                Alert.alert(
+                  '¡Hemos Llegado! 🎉',
+                  `El viaje ha finalizado con éxito.\n` +
+                  `Costo final: $${rideData.precioFinal || '0'} MXN.`
+                );
+              } else if (rideData.estado === 'cancelado') {
+                Alert.alert(
+                  'Viaje Cancelado ❌',
+                  rideData.canceladoPor === 'driver'
+                    ? 'El conductor ha cancelado el viaje.'
+                    : 'Has cancelado el viaje.'
+                );
+              }
+            }
+          }
+        }
+      });
 
     return unsub;
   }, []);
@@ -361,7 +421,6 @@ export default function PassengerHomeScreen({ navigation }: any) {
           domStorageEnabled={true}
           originWhitelist={['*']}
           mixedContentMode="always"
-          androidHardwareAccelerationDisabled={true}
           onLoadEnd={() => {
             if (passengerLocation) sendToMap({ type: 'center', lat: passengerLocation.lat, lng: passengerLocation.lng });
           }}
