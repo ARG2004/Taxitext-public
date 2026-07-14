@@ -13,6 +13,7 @@ import {
   Dimensions,
   Modal,
   FlatList,
+  ScrollView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import auth from '@react-native-firebase/auth';
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react-native';
 
 import { goOnline, goOffline } from '../services/driverLocationService';
+import { acceptRide } from '../services/rideService';
 import { requestLocationPermission, getCurrentPosition, LatLng } from '../utils/location';
 import type { Ride } from '../types/rideTypes';
 import { Spacing, Radius, Shadows, Typography } from '../theme';
@@ -202,20 +204,23 @@ export default function DriverHomeScreen({ navigation }: any) {
 
   const handleAcceptRide = async (rideId: string) => {
     if (!uid) return;
+    setLoadingLocation(true);
     try {
-      await firestore().collection('solicitudes').doc(rideId).update({
-        conductorId: uid,
-        conductorNombre: driverData?.nombre || 'Conductor',
-        conductorPlaca: driverData?.placa || '',
-        conductorUbicacion: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
-        conductorUnidad: driverData?.numUnidad || '',
-        estado: 'aceptado',
-        aceptadoEn: firestore.FieldValue.serverTimestamp(),
-      });
-      Alert.alert('Viaje Aceptado', 'Has aceptado la solicitud con éxito. Dirígete a la pantalla de operaciones.');
+      const success = await acceptRide(rideId, uid);
+      if (success) {
+        Alert.alert(
+          'Viaje Aceptado',
+          'Has aceptado la solicitud con éxito. Dirígete a la pantalla de operaciones.',
+          [{ text: 'OK', onPress: () => navigation.navigate('DriverMap') }]
+        );
+      } else {
+        Alert.alert('Error', 'No se pudo aceptar la solicitud. Quizás ya la tomó otro taxista.');
+      }
     } catch (e) {
       console.log('Error accepting ride:', e);
       Alert.alert('Error', 'No se pudo aceptar el viaje.');
+    } finally {
+      setLoadingLocation(false);
     }
   };
 
@@ -341,98 +346,104 @@ export default function DriverHomeScreen({ navigation }: any) {
 
       {/* Floating Bottom Sheet Panel */}
       <View style={styles.panel}>
-        {/* Driver Profile */}
-        <View style={styles.infoTop}>
-          <View style={styles.avatarCircle}>
-            <Car size={26} color={C.blanco} />
-          </View>
-          <View style={styles.infoTexts}>
-            <Text style={styles.infoName}>Hola, {firstName}</Text>
-            <View style={styles.infoRow}>
-              {driverData?.placa && (
-                <View style={styles.infoBadge}>
-                  <View style={styles.badgeIconRow}>
-                    <Hash size={10} color={C.carbonMedio} />
-                    <Text style={styles.infoBadgeText}>{driverData.placa}</Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ maxHeight: height * 0.38 }}
+          contentContainerStyle={{ gap: 14 }}
+        >
+          {/* Driver Profile */}
+          <View style={styles.infoTop}>
+            <View style={styles.avatarCircle}>
+              <Car size={26} color={C.blanco} />
+            </View>
+            <View style={styles.infoTexts}>
+              <Text style={styles.infoName}>Hola, {firstName}</Text>
+              <View style={styles.infoRow}>
+                {driverData?.placa && (
+                  <View style={styles.infoBadge}>
+                    <View style={styles.badgeIconRow}>
+                      <Hash size={10} color={C.carbonMedio} />
+                      <Text style={styles.infoBadgeText}>{driverData.placa}</Text>
+                    </View>
                   </View>
-                </View>
-              )}
-              {driverData?.numUnidad && (
-                <View style={[styles.infoBadge, styles.infoBadgeAlt]}>
-                  <View style={styles.badgeIconRow}>
-                    <Car size={10} color={C.carbonMedio} />
-                    <Text style={styles.infoBadgeText}>Unidad {driverData.numUnidad}</Text>
+                )}
+                {driverData?.numUnidad && (
+                  <View style={[styles.infoBadge, styles.infoBadgeAlt]}>
+                    <View style={styles.badgeIconRow}>
+                      <Car size={10} color={C.carbonMedio} />
+                      <Text style={styles.infoBadgeText}>Unidad {driverData.numUnidad}</Text>
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Toggle Online */}
-        <View style={styles.onlineToggle}>
-          <View style={styles.onlineLeft}>
-            <View style={[styles.statusDot, { backgroundColor: isOnline ? C.verde : C.gris }]} />
-            <Text style={styles.onlineLabel}>
-              {isOnline ? 'En línea — Recibiendo viajes' : 'Fuera de línea'}
-            </Text>
-          </View>
-          <Switch
-            value={isOnline}
-            onValueChange={toggleOnline}
-            trackColor={{ false: '#E0E0E0', true: C.verde + '66' }}
-            thumbColor={isOnline ? C.verde : '#ccc'}
-          />
-        </View>
-
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.viajesHoy}</Text>
-            <Text style={styles.statLabel}>Viajes hoy</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <View style={styles.ratingRow}>
-              <Star size={16} color={C.amarilloOscuro} fill={C.amarilloOscuro} />
-              <Text style={styles.statValue}> {stats.rating.toFixed(1)}</Text>
+          {/* Toggle Online */}
+          <View style={styles.onlineToggle}>
+            <View style={styles.onlineLeft}>
+              <View style={[styles.statusDot, { backgroundColor: isOnline ? C.verde : C.gris }]} />
+              <Text style={styles.onlineLabel}>
+                {isOnline ? 'En línea — Recibiendo viajes' : 'Fuera de línea'}
+              </Text>
             </View>
-            <Text style={styles.statLabel}>Calificación</Text>
+            <Switch
+              value={isOnline}
+              onValueChange={toggleOnline}
+              trackColor={{ false: '#E0E0E0', true: C.verde + '66' }}
+              thumbColor={isOnline ? C.verde : '#ccc'}
+            />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            {driverData?.verificado ? (
-              <CheckCircle size={20} color={C.verde} />
-            ) : (
-              <Clock size={20} color={C.amarilloOscuro} />
-            )}
-            <Text style={styles.statLabel}>
-              {driverData?.verificado ? 'Verificado' : 'Pendiente'}
-            </Text>
-          </View>
-        </View>
 
-        {/* Actions Row (Map & Requests List) if Online */}
-        {isOnline && (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={[styles.openMapBtn, { flex: 1 }]} onPress={irAlMapa}>
-              <View style={styles.openMapInner}>
-                <Map size={16} color={C.blanco} />
-                <Text style={styles.openMapBtnText}>Ver en Mapa</Text>
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.viajesHoy}</Text>
+              <Text style={styles.statLabel}>Viajes hoy</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <View style={styles.ratingRow}>
+                <Star size={16} color={C.amarilloOscuro} fill={C.amarilloOscuro} />
+                <Text style={styles.statValue}> {stats.rating.toFixed(1)}</Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.viewRidesBtn, { flex: 1 }]}
-              onPress={() => setShowRidesModal(true)}
-            >
-              <View style={styles.openMapInner}>
-                <Bell size={16} color={C.blanco} />
-                <Text style={styles.openMapBtnText}>Ver Solicitudes ({pendingRides.length})</Text>
-              </View>
-            </TouchableOpacity>
+              <Text style={styles.statLabel}>Calificación</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              {driverData?.verificado ? (
+                <CheckCircle size={20} color={C.verde} />
+              ) : (
+                <Clock size={20} color={C.amarilloOscuro} />
+              )}
+              <Text style={styles.statLabel}>
+                {driverData?.verificado ? 'Verificado' : 'Pendiente'}
+              </Text>
+            </View>
           </View>
-        )}
+
+          {/* Actions Row (Map & Requests List) if Online */}
+          {isOnline && (
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity style={[styles.openMapBtn, { flex: 1 }]} onPress={irAlMapa}>
+                <View style={styles.openMapInner}>
+                  <Map size={16} color={C.blanco} />
+                  <Text style={styles.openMapBtnText}>Ver en Mapa</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.viewRidesBtn, { flex: 1 }]}
+                onPress={() => setShowRidesModal(true)}
+              >
+                <View style={styles.openMapInner}>
+                  <Bell size={16} color={C.blanco} />
+                  <Text style={styles.openMapBtnText}>Ver Solicitudes ({pendingRides.length})</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
 
         {/* Bottom Tab Bar */}
         <View style={styles.tabBar}>

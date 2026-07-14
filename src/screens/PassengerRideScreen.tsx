@@ -48,15 +48,22 @@ const buildMapHtml = (lat: number, lng: number) => `
     * { margin:0; padding:0; box-sizing:border-box; }
     html,body,div[id="map"] { width:100%; height:100%; }
     .user-pulse {
-      width:18px; height:18px; border-radius:50%;
-      background: rgb(245,194,0);
-      box-shadow:0 0 0 0 rgba(245,194,0,0.7);
-      animation:upulse 2s infinite;
+      width:16px; height:16px; border-radius:50%;
+      background: rgb(245,194,0); border: 2.5px solid white;
+      box-shadow: 0 0 10px rgba(245,194,0,0.6);
+      position: relative;
     }
-    @keyframes upulse {
-      0%   { box-shadow:0 0 0 0 rgba(245,194,0,0.7); }
-      70%  { box-shadow:0 0 0 14px rgba(245,194,0,0); }
-      100% { box-shadow:0 0 0 0 rgba(245,194,0,0); }
+    .user-pulse::after {
+      content: '';
+      position: absolute;
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 2px solid rgb(245,194,0); opacity: 0;
+      top: -18px; left: -18px;
+      animation: radar-ripple 2s infinite linear;
+    }
+    @keyframes radar-ripple {
+      0% { transform: scale(0.3); opacity: 0.8; }
+      100% { transform: scale(1.6); opacity: 0; }
     }
     .driver-dot {
       width:36px; height:36px; border-radius:50%;
@@ -134,6 +141,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
   const [ride, setRide] = useState<Ride | null>(null);
   const [etaInfo, setEtaInfo] = useState<{ km: string; min: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
@@ -156,6 +164,58 @@ export default function PassengerRideScreen({ route, navigation }: any) {
     webviewRef.current?.injectJavaScript(js);
   }, []);
 
+  // Observer to notify passenger of status changes in real-time
+  const prevEstadoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!ride) return;
+
+    const prevEstado = prevEstadoRef.current;
+    const currentEstado = ride.estado;
+
+    if (prevEstado !== null && prevEstado !== currentEstado) {
+      if (currentEstado === 'aceptado') {
+        Alert.alert(
+          '¡Conductor en Camino! 🚕',
+          `El conductor ${ride.conductorNombre || 'de TaxiTex'} ha aceptado tu viaje.\n` +
+          `Unidad: ${ride.conductorUnidad || 'N/A'} • Placas: ${ride.conductorPlaca || 'N/A'}`
+        );
+      } else if (currentEstado === 'llegado') {
+        Alert.alert(
+          '¡Tu Taxi ha Llegado! 📍',
+          `${ride.conductorNombre || 'El conductor'} te está esperando en el punto de encuentro.`
+        );
+      } else if (currentEstado === 'en_curso') {
+        Alert.alert(
+          'Viaje Iniciado 🚀',
+          `Te diriges hacia: ${ride.destino.label}`
+        );
+      } else if (currentEstado === 'completado') {
+        Alert.alert(
+          '¡Hemos Llegado! 🎉',
+          `El viaje ha finalizado con éxito.\n` +
+          `Costo final: $${ride.precioFinal || '0'} MXN.`
+        );
+      } else if (currentEstado === 'cancelado') {
+        Alert.alert(
+          'Viaje Cancelado ❌',
+          ride.canceladoPor === 'driver'
+            ? 'El conductor ha cancelado el viaje.'
+            : 'Has cancelado el viaje.'
+        );
+      }
+    }
+
+    prevEstadoRef.current = currentEstado;
+  }, [
+    ride?.estado,
+    ride?.conductorNombre,
+    ride?.conductorUnidad,
+    ride?.conductorPlaca,
+    ride?.precioFinal,
+    ride?.destino?.label
+  ]);
+
   // ── Listener del ride ──
   useEffect(() => {
     const unsub = firestore()
@@ -176,7 +236,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
 
   // ── Actualizar mapa al cambiar ride ──
   useEffect(() => {
-    if (!ride) return;
+    if (!ride || !isMapReady) return;
 
     sendToMap({ type: 'showPickup', lat: ride.origen.lat, lng: ride.origen.lng });
     sendToMap({ type: 'showDest', lat: ride.destino.lat, lng: ride.destino.lng });
@@ -184,16 +244,16 @@ export default function PassengerRideScreen({ route, navigation }: any) {
     if (ride.conductorUbicacion) {
       sendToMap({ type: 'driverLocation', lat: ride.conductorUbicacion.lat, lng: ride.conductorUbicacion.lng });
     }
-  }, [ride?.estado, ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, sendToMap]);
+  }, [isMapReady, ride?.estado, ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, sendToMap]);
 
   // ── Calcular ETA hacia pickup ──
   useEffect(() => {
-    if (!ride?.conductorUbicacion) return;
+    if (!isMapReady || !ride?.conductorUbicacion) return;
     if (ride.estado !== 'aceptado') return;
 
     const calcEta = async () => {
       const result = await fetchDrivingRoute(ride.conductorUbicacion!, ride.origen);
-      if (result) {
+      if (result && isMapReady) {
         sendToMap({
           type: 'route',
           coords: result.coords,
@@ -208,16 +268,16 @@ export default function PassengerRideScreen({ route, navigation }: any) {
       }
     };
     calcEta();
-  }, [ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, ride?.estado, sendToMap]);
+  }, [isMapReady, ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, ride?.estado, sendToMap]);
 
   // ── Calcular ruta al destino ──
   useEffect(() => {
-    if (!ride?.conductorUbicacion) return;
+    if (!isMapReady || !ride?.conductorUbicacion) return;
     if (ride.estado !== 'en_curso') return;
 
     const calcRuta = async () => {
       const result = await fetchDrivingRoute(ride.conductorUbicacion!, ride.destino);
-      if (result) {
+      if (result && isMapReady) {
         sendToMap({
           type: 'route',
           coords: result.coords,
@@ -232,9 +292,10 @@ export default function PassengerRideScreen({ route, navigation }: any) {
       }
     };
     calcRuta();
-  }, [ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, ride?.estado, sendToMap]);
+  }, [isMapReady, ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, ride?.estado, sendToMap]);
 
   const handleWebViewLoad = () => {
+    setIsMapReady(true);
     if (ride) {
       sendToMap({ type: 'showPickup', lat: ride.origen.lat, lng: ride.origen.lng });
       sendToMap({ type: 'showDest', lat: ride.destino.lat, lng: ride.destino.lng });

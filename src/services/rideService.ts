@@ -165,7 +165,7 @@ export async function cancelRide(
     conductorUbicacion: null,
   });
 
-  if (driverUid) {
+  if (driverUid && byWhom === 'driver') {
     await firestore().collection(CONDUCTORES).doc(driverUid).update({
       status: 'available',
       updatedAt: firestore.FieldValue.serverTimestamp(),
