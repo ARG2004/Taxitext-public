@@ -208,6 +208,7 @@ export default function DriverMapScreen({ navigation }: any) {
   // 2. Escuchar viaje activo del conductor actual
   useEffect(() => {
     if (!uid) return;
+    let isFirst = true;
     const unsub = firestore()
       .collection('solicitudes')
       .where('conductorId', '==', uid)
@@ -218,12 +219,24 @@ export default function DriverMapScreen({ navigation }: any) {
           const doc = snap.docs[0];
           setActiveRide({ id: doc.id, ...(doc.data() as any) } as Ride);
           setSelectedPreviewRide(null); // Limpiar preview al haber viaje activo
+          isFirst = false;
         } else {
           setActiveRide(null);
+          if (!isFirst) {
+            // El viaje activo desapareció de forma inesperada (se canceló o finalizó)
+            // Aseguramos que el conductor vuelva a estar disponible en Firestore y regrese a Home
+            firestore().collection('conductores').doc(uid).update({
+              status: 'available',
+              updatedAt: firestore.FieldValue.serverTimestamp(),
+            }).catch(() => {});
+            
+            Alert.alert('Viaje Finalizado/Cancelado', 'El viaje activo ya no está disponible.');
+            navigation.navigate('DriverHome');
+          }
         }
       });
     return unsub;
-  }, [uid]);
+  }, [uid, navigation]);
 
   // 3. Monitorear ubicación del conductor y actualizar Firestore
   useEffect(() => {
