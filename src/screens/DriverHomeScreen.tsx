@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -120,6 +121,7 @@ const DRIVER_MAP_HTML = `
 `;
 
 export default function DriverHomeScreen({ navigation }: any) {
+  const isFocused = useIsFocused();
   const webviewRef = useRef<any>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [driverData, setDriverData] = useState<any>(null);
@@ -136,7 +138,7 @@ export default function DriverHomeScreen({ navigation }: any) {
 
   // Escuchar si tiene viajes activos para redirigir directamente al mapa
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !isFocused) return;
 
     const unsub = firestore()
       .collection('solicitudes')
@@ -145,7 +147,7 @@ export default function DriverHomeScreen({ navigation }: any) {
       .limit(1)
       .onSnapshot(
         (snap) => {
-          if (snap && !snap.empty) {
+          if (snap && !snap.empty && isFocused) {
             navigation.navigate('DriverMap');
           }
         },
@@ -155,7 +157,7 @@ export default function DriverHomeScreen({ navigation }: any) {
       );
 
     return unsub;
-  }, [uid, navigation]);
+  }, [uid, navigation, isFocused]);
 
   // Obtener la ubicación exacta del conductor en el montaje
   useEffect(() => {

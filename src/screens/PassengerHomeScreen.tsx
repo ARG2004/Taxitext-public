@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -128,6 +129,7 @@ const MAP_HTML = `
 export const shownNotifications = new Set<string>();
 
 export default function PassengerHomeScreen({ navigation }: any) {
+  const isFocused = useIsFocused();
   const webviewRef = useRef<any>(null);
   const [searchText, setSearchText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -200,7 +202,7 @@ export default function PassengerHomeScreen({ navigation }: any) {
       setUserName(user.displayName.split(' ')[0]);
     }
 
-    if (!user) return;
+    if (!user || !isFocused) return;
 
     const unsub = firestore()
       .collection('solicitudes')
@@ -209,7 +211,7 @@ export default function PassengerHomeScreen({ navigation }: any) {
       .limit(1)
       .onSnapshot(
         (snap) => {
-          if (snap && !snap.empty) {
+          if (snap && !snap.empty && isFocused) {
             const doc = snap.docs[0];
             const rideData = doc.data() as Ride;
             navigation.navigate('PassengerRide', {
@@ -225,7 +227,7 @@ export default function PassengerHomeScreen({ navigation }: any) {
       );
 
     return unsub;
-  }, []);
+  }, [isFocused]);
 
   // Monitor latest ride status transitions to show alerts on Passenger Home
   useEffect(() => {

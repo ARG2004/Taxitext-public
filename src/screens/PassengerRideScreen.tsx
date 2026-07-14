@@ -24,6 +24,8 @@ import {
   MapPin,
   Phone,
   Shield,
+  Car,
+  CheckCircle,
 } from 'lucide-react-native';
 
 import { startRide, cancelRide } from '../services/rideService';
@@ -82,7 +84,7 @@ const buildMapHtml = (lat: number, lng: number) => `
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
 
   var userIcon = L.divIcon({ className:'', html:'<div class="user-pulse"></div>', iconSize:[18,18], iconAnchor:[9,9] });
-  var driverIcon = L.divIcon({ className:'', html:'<div class="driver-dot">🚕</div>', iconSize:[36,36], iconAnchor:[18,18] });
+  var driverIcon = L.divIcon({ className:'', html:'<div class="driver-dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></div>', iconSize:[36,36], iconAnchor:[18,18] });
   var pinSvg = function(color){ return '<svg width="30" height="40" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">' +
     '<path d="M17 0C7.6 0 0 7.6 0 17c0 12.4 17 27 17 27s17-14.6 17-27C34 7.6 26.4 0 17 0z" fill="rgb(26,26,46)"/>' +
     '<circle cx="17" cy="17" r="7" fill="' + color + '"/></svg>'; };
@@ -420,19 +422,19 @@ export default function PassengerRideScreen({ route, navigation }: any) {
           <View style={styles.panel}>
             <View style={styles.driverCard}>
               <View style={styles.driverAvatar}>
-                <Text style={styles.driverAvatarText}>🚕</Text>
+                <Car size={26} color={DARK} />
               </View>
               <View style={styles.driverInfo}>
                 <Text style={styles.driverName}>{ride?.conductorNombre ?? 'Conductor'}</Text>
                 <View style={styles.driverBadges}>
                   {ride?.conductorPlaca && (
                     <View style={styles.badge}>
-                      <Text style={styles.badgeText}>🔢 {ride.conductorPlaca}</Text>
+                      <Text style={styles.badgeText}>Placa: {ride.conductorPlaca}</Text>
                     </View>
                   )}
                   {ride?.conductorUnidad && (
                     <View style={[styles.badge, styles.badgeAlt]}>
-                      <Text style={styles.badgeText}>🚖 U. {ride.conductorUnidad}</Text>
+                      <Text style={styles.badgeText}>Unidad: {ride.conductorUnidad}</Text>
                     </View>
                   )}
                 </View>
@@ -465,7 +467,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
         return (
           <View style={styles.panel}>
             <View style={styles.arrivedBanner}>
-              <Text style={styles.arrivedEmoji}>🚕</Text>
+              <Car size={36} color={AZUL} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.arrivedTitle}>¡Tu conductor ya llegó!</Text>
                 <Text style={styles.arrivedSub}>
@@ -477,12 +479,12 @@ export default function PassengerRideScreen({ route, navigation }: any) {
             <View style={styles.driverBadges}>
               {ride?.conductorPlaca && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>🔢 {ride.conductorPlaca}</Text>
+                  <Text style={styles.badgeText}>Placa: {ride.conductorPlaca}</Text>
                 </View>
               )}
               {ride?.conductorUnidad && (
                 <View style={[styles.badge, styles.badgeAlt]}>
-                  <Text style={styles.badgeText}>🚖 U. {ride.conductorUnidad}</Text>
+                  <Text style={styles.badgeText}>Unidad: {ride.conductorUnidad}</Text>
                 </View>
               )}
             </View>
@@ -496,7 +498,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
                 {busy ? (
                   <ActivityIndicator color={DARK} size="small" />
                 ) : (
-                  <Text style={styles.startRideBtnText}>✅ Iniciar viaje</Text>
+                  <Text style={styles.startRideBtnText}>Iniciar viaje</Text>
                 )}
               </TouchableOpacity>
 
@@ -542,13 +544,19 @@ export default function PassengerRideScreen({ route, navigation }: any) {
                 <Text style={styles.panicBtnText}>SOS</Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity style={styles.cancelOutlineBtn} onPress={handleCancel} disabled={busy}>
+              <Text style={styles.cancelOutlineText}>Cancelar viaje</Text>
+            </TouchableOpacity>
           </View>
         );
 
       case 'completado':
         return (
           <View style={styles.panel}>
-            <Text style={styles.completedEmoji}>✅</Text>
+            <View style={{ alignItems: 'center', marginVertical: 8 }}>
+              <CheckCircle size={44} color={VERDE} />
+            </View>
             <Text style={styles.completedTitle}>¡Viaje completado!</Text>
             <Text style={styles.completedSub}>
               Has llegado a {ride?.destino.label}
@@ -556,9 +564,9 @@ export default function PassengerRideScreen({ route, navigation }: any) {
 
             {ride?.distanciaKm != null && (
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryItem}>📏 {ride.distanciaKm.toFixed(1)} km</Text>
+                <Text style={styles.summaryItem}>Distancia: {ride.distanciaKm.toFixed(1)} km</Text>
                 {ride?.precioFinal != null && (
-                  <Text style={styles.summaryItem}>💰 ${ride.precioFinal} MXN</Text>
+                  <Text style={styles.summaryItem}>Costo: ${ride.precioFinal} MXN</Text>
                 )}
               </View>
             )}
@@ -575,7 +583,9 @@ export default function PassengerRideScreen({ route, navigation }: any) {
       case 'cancelado':
         return (
           <View style={styles.panel}>
-            <Text style={styles.completedEmoji}>❌</Text>
+            <View style={{ alignItems: 'center', marginVertical: 8 }}>
+              <X size={44} color={ROJO} />
+            </View>
             <Text style={styles.completedTitle}>Viaje cancelado</Text>
             <Text style={styles.completedSub}>
               {ride?.canceladoPor === 'driver'
