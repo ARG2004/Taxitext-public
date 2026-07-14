@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:564304936523:android:2acdba7a48e274d9c017ce",
+        "android_client_info": {
+          "package_name": "com.taxitex"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8WBLvVgSqNk6ZWTKUGtlaEh58bRNBfrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:564304936523:android:e90fff99da46f270c017ce",
         "android_client_info": {
           "package_name": "com.taxitext"
