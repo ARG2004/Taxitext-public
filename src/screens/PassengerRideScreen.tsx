@@ -248,6 +248,25 @@ export default function PassengerRideScreen({ route, navigation }: any) {
     }
   }, [isMapReady, ride?.estado, ride?.conductorUbicacion?.lat, ride?.conductorUbicacion?.lng, sendToMap]);
 
+  // ── Calcular ruta de Origen a Destino durante búsqueda ──
+  useEffect(() => {
+    if (!isMapReady || !ride) return;
+    if (ride.estado !== 'buscando') return;
+
+    const calcBuscandoRoute = async () => {
+      const result = await fetchDrivingRoute(ride.origen, ride.destino);
+      if (result && isMapReady) {
+        sendToMap({
+          type: 'route',
+          coords: result.coords,
+          color: YELLOW,
+        });
+        sendToMap({ type: 'fitAll' });
+      }
+    };
+    calcBuscandoRoute();
+  }, [isMapReady, ride?.id, ride?.estado, sendToMap]);
+
   // ── Calcular ETA hacia pickup ──
   useEffect(() => {
     if (!isMapReady || !ride?.conductorUbicacion) return;
@@ -261,6 +280,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
           coords: result.coords,
           color: AZUL,
         });
+        sendToMap({ type: 'fitAll' });
         if (result.distanceKm != null && result.durationMin != null) {
           setEtaInfo({
             km: result.distanceKm.toFixed(1),
@@ -285,6 +305,7 @@ export default function PassengerRideScreen({ route, navigation }: any) {
           coords: result.coords,
           color: YELLOW,
         });
+        sendToMap({ type: 'fitAll' });
         if (result.distanceKm != null && result.durationMin != null) {
           setEtaInfo({
             km: result.distanceKm.toFixed(1),
