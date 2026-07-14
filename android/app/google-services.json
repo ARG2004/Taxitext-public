@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "564304936523",
+    "project_id": "taxitex-34b6d",
+    "storage_bucket": "taxitex-34b6d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:564304936523:android:e90fff99da46f270c017ce",
+        "android_client_info": {
+          "package_name": "com.taxitext"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8WBLvVgSqNk6ZWTKUGtlaEh58bRNBfrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
