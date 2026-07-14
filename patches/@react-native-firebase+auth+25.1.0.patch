@@ -1,0 +1,12 @@
+diff --git a/node_modules/@react-native-firebase/auth/ios/RNFBAuth/RNFBAuthModule.m b/node_modules/@react-native-firebase/auth/ios/RNFBAuth/RNFBAuthModule.m
+index 73b91b9..847b495 100644
+--- a/node_modules/@react-native-firebase/auth/ios/RNFBAuth/RNFBAuthModule.m
++++ b/node_modules/@react-native-firebase/auth/ios/RNFBAuth/RNFBAuthModule.m
+@@ -15,6 +15,7 @@
+  *
+  */
+ 
++#import <React/RCTBridgeModule.h>
+ #import <Firebase/Firebase.h>
+ #import <React/RCTUtils.h>
+ 
